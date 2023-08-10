@@ -8,19 +8,23 @@
 
 typedef struct {
     char tipo;
-    char arg[150];
+    char arg[10];
 } operacao;
 
 operacao ler_op(FILE *fd) {
     operacao op;
 
     op.tipo = fgetc(fd);
+    if (fgetc(fd) != ' ') assert(false);
 
-    fseek(fd, 1, SEEK_CUR);
-    fgets(op.arg, 150, fd);
+    fgets(op.arg, 10, fd);
 
     if (op.arg[strlen(op.arg) - 1] == '\n')
         op.arg[strlen(op.arg) - 1] = '\0';
+    else
+        op.arg[strlen(op.arg)] = '\0';
+
+    // printf("%c, %s", op.tipo, op.arg);
 
     return op;
 }
@@ -29,10 +33,15 @@ operacao ler_op(FILE *fd) {
 
 void executa_op(char* path);
 int ler_registro(FILE* fd, char* str);
-int get_tam_registro(FILE* fd, int offset);
+int ler_campo(FILE* fd, char* str);
+
+short get_tam_registro(FILE* fd, int offset);
+void checar_cabecalho(FILE* fd);
+char fpeek(FILE* fd);
+
+bool busca_id(FILE* fd, char* id);
 
 int main(int argc, char *argv[]) {
-
     if (argc == 3 && strcmp(argv[1], "-e") == 0) {
 
         printf("Modo de execucao de operacoes ativado ... nome do arquivo = %s\n", argv[2]);
@@ -63,10 +72,9 @@ int main(int argc, char *argv[]) {
 
 void executa_op(char* path){
     FILE* fd;
-    char buffer[150];
 
     fd = fopen(path, "r");
-        assert(fd != NULL);
+    assert(fd != NULL);
 
         FILE* dados = fopen("dados.dat", "rb");
         assert(dados != NULL);
@@ -76,9 +84,11 @@ void executa_op(char* path){
 
             switch(op.tipo){
                 case 'b':
-                    int i = ler_registro(dados, buffer);
-                    
-                    printf("lido %i bytes: %s\n", i, buffer);
+                    if (busca_id(dados, op.arg)) {
+                        printf("Encontrou %s\n", op.arg);
+                    } else {
+                        printf("Nao encontrou %s\n", op.arg);
+                    }
                     break;
                 case 'i':
                     break;
@@ -87,7 +97,7 @@ void executa_op(char* path){
                 default:
                     assert(false);
             }
-            
+
             // printf("%c\n", op.tipo);
             // printf("%s\n", op.arg);
         }
@@ -96,8 +106,10 @@ void executa_op(char* path){
 
 }
 
-int get_tam_registro(FILE* fd, int offset) {
-    fseek(fd, offset, SEEK_SET);
+short get_tam_registro(FILE* fd, int offset) {
+    if (offset >= 0) {
+        fseek(fd, offset, SEEK_SET);
+    }
 
     short tamanho_registro;
     fread(&tamanho_registro, sizeof(short), 1, fd);
@@ -105,11 +117,15 @@ int get_tam_registro(FILE* fd, int offset) {
     return tamanho_registro;
 }
 
+char fpeek(FILE* fd) {
+    char c = fgetc(fd);
+    ungetc(c, fd);
+
+    return c;
+}
+
 int ler_registro(FILE* fd, char* str) {
-    int pos = ftell(fd);
-    if (pos < 0) assert(false); 
-    if (pos < 4)
-        fseek(fd, 4, SEEK_SET);
+    checar_cabecalho(fd);
 
     int tamanho_registro = get_tam_registro(fd, ftell(fd));
 
@@ -119,4 +135,45 @@ int ler_registro(FILE* fd, char* str) {
 
     str[tamanho_registro] = '\0';
     return tamanho_registro;
+}
+
+int ler_campo(FILE* fd, char* str) {
+    checar_cabecalho(fd);
+
+    int i = 0;
+    char c;
+
+    while ((c = fgetc(fd)) != '|') {
+        str[i++] = c;
+    }
+    str[++i] = '\0';
+
+    return i;
+}
+
+void checar_cabecalho(FILE* fd) {
+    int pos = ftell(fd);
+    if (pos < 0) assert(false);
+    if (pos < 4)
+        fseek(fd, 4, SEEK_SET);
+}
+
+bool busca_id(FILE* fd, char* id) {
+    char buffer[10] = "\0";
+    short i = 0;
+    int tam = 0;
+
+    fseek(fd, 4, SEEK_SET);
+
+    while (fpeek(fd) != EOF) {
+        tam = get_tam_registro(fd, -1);
+        i = ler_campo(fd, buffer);
+
+        if (strcmp(buffer, id) == 0)
+            return true;
+
+        fseek(fd, tam-i, SEEK_CUR);
+    }
+
+    return false;
 }
