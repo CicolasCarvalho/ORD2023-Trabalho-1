@@ -39,7 +39,7 @@ short get_tam_registro(FILE* fd, int offset);
 void checar_cabecalho(FILE* fd);
 char fpeek(FILE* fd);
 
-bool busca_id(FILE* fd, char* id);
+int busca_id(FILE* fd, char* id);
 
 int main(int argc, char *argv[]) {
     if (argc == 3 && strcmp(argv[1], "-e") == 0) {
@@ -71,7 +71,8 @@ int main(int argc, char *argv[]) {
 }
 
 void executa_op(char* path){
-    FILE* fd;
+    FILE *fd;
+    char buffer[150] = "\0";
 
     fd = fopen(path, "r");
     assert(fd != NULL);
@@ -84,8 +85,12 @@ void executa_op(char* path){
 
             switch(op.tipo){
                 case 'b':
-                    if (busca_id(dados, op.arg)) {
-                        printf("Encontrou %s\n", op.arg);
+                    int pos = busca_id(dados, op.arg);
+
+                    if (pos>= 0) {
+                        fseek(dados, pos, SEEK_SET);
+                        ler_registro(dados, buffer);
+                        printf("Encontrou %s\n", buffer);
                     } else {
                         printf("Nao encontrou %s\n", op.arg);
                     }
@@ -127,7 +132,7 @@ char fpeek(FILE* fd) {
 int ler_registro(FILE* fd, char* str) {
     checar_cabecalho(fd);
 
-    int tamanho_registro = get_tam_registro(fd, ftell(fd));
+    short tamanho_registro = get_tam_registro(fd, -1);
 
     for (int i = 0; i < tamanho_registro; i++) {
         str[i] = fgetc(fd);
@@ -158,7 +163,7 @@ void checar_cabecalho(FILE* fd) {
         fseek(fd, 4, SEEK_SET);
 }
 
-bool busca_id(FILE* fd, char* id) {
+int busca_id(FILE* fd, char* id) {
     char buffer[10] = "\0";
     short i = 0;
     int tam = 0;
@@ -169,11 +174,12 @@ bool busca_id(FILE* fd, char* id) {
         tam = get_tam_registro(fd, -1);
         i = ler_campo(fd, buffer);
 
-        if (strcmp(buffer, id) == 0)
-            return true;
+        if (strcmp(buffer, id) == 0) {
+            return ftell(fd) - i - 2;
+        }
 
         fseek(fd, tam-i, SEEK_CUR);
     }
 
-    return false;
+    return -1;
 }
