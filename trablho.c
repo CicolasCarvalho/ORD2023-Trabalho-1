@@ -39,7 +39,34 @@ operacao ler_op(FILE *fd) {
     return op;
 }
 
+NED* cria_NED(char* id, short tam){// função não testada
+    NED* ptr = NULL;
 
+    ptr = (NED*)malloc(sizeof(NED));
+
+    strcpy(ptr->id_removido, id);
+    ptr->tam_registro = id;
+    ptr->prox = NULL; 
+
+    return ptr;
+}
+
+void cria_LED(NED* ptr, char* id, short tam) { // função não testada.
+    NED* temporario = NULL;
+    NED* percorre_LED;
+
+    if(ptr == NULL) {
+        ptr = cria_NED(id, tam);
+    } else {
+        percorre_LED = ptr;
+        while(percorre_LED->prox != NULL) {
+            percorre_LED = percorre_LED->prox;
+        }
+
+        temporario = cria_NED(id, tam);
+        percorre_LED->prox = temporario;
+    }
+}
 
 //---------------------------------------------------------------
 
