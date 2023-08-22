@@ -5,17 +5,16 @@
 #include <stdbool.h>
 
 //---------------------------------------------------------------
-typedef struct NED NED;
+typedef struct LED LED;
 
-// struct para a implementaÃ§Ã£o da LED.
-struct NED { // NÃ³ de EspaÃ§o DisponÃ­vel.
+struct LED {
     int offset;
     short tam_registro;
-    NED* prox;
+    LED* prox;
 };
 
-NED* NED_criar(int offset, short tam){// funÃ§Ã£o nÃ£o testada
-    NED* ptr = malloc(sizeof(NED));
+LED* LED_criar(int offset, short tam){
+    LED* ptr = malloc(sizeof(LED));
 
     ptr->offset = offset;
     ptr->tam_registro = tam;
@@ -24,7 +23,7 @@ NED* NED_criar(int offset, short tam){// funÃ§Ã£o nÃ£o testada
     return ptr;
 }
 
-void NED_adicionar(NED *ned, NED* novo) {
+void LED_adicionar(LED *ned, LED* novo) {
     if (ned == NULL) {
         printf("tentou inserir em fila vazia\n");
         assert(false);
@@ -35,35 +34,16 @@ void NED_adicionar(NED *ned, NED* novo) {
         return;
     }
 
-    NED_adicionar(ned->prox, novo);
+    LED_adicionar(ned->prox, novo);
 }
-
-// void cria_LED(NED* ptr, char* id, short tam) { // funÃ§Ã£o nÃ£o testada.
-//     NED* temporario = NULL;
-//     NED* percorre_LED;
-
-//     if(ptr == NULL) {
-//         ptr = NED_criar(id, tam);
-//     } else {
-//         percorre_LED = ptr;
-//         while(percorre_LED->prox != NULL) {
-//             percorre_LED = percorre_LED->prox;
-//         }
-
-//         temporario = NED_criar(id, tam);
-//         percorre_LED->prox = temporario;
-//     }
-// }
 
 typedef struct {
     char tipo;
     char arg[10];
 } operacao;
 
-// A funÃ§Ã£o ler_op le o tipo de operaÃ§Ã£o especificado no arquivo e o argumento
-// passado logo apÃ³s a operaÃ§Ã£o:
-// exemplo: b 23 | aqui ele retorna o tipo de operaÃ§Ã£o "b" e o argumento
-// referente Ã  operaÃ§Ã£o "23", ou seja, Ã© uma busca ao identificador 23.
+// Lê uma operação do arquivo de operações.
+// "b 123" -> {tipo = 'b', arg = "123"}
 operacao ler_op(FILE *fd) {
     operacao op;
 
@@ -125,8 +105,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-// A funÃ§Ã£o "executa_op" checa qual a operaÃ§Ã£o passada no arquivo de comandos
-// e executa as especÃ­ficas funÃ§Ãµes de apoio.
+// Executa as operações do arquivo de operações.
 void executa_op(char* path){
     FILE *fd;
     char buffer[150] = "\0";
@@ -161,7 +140,7 @@ void executa_op(char* path){
                     int pos = remove_id(dados, op.arg);
 
                     if(pos < 0) {
-                        printf("id nÃ£o encontrado!\n");
+                        printf("id nà£o encontrado!\n");
                     } else {
                         fseek(dados, pos, SEEK_SET);
                         ler_registro(dados, buffer);
@@ -181,10 +160,7 @@ void executa_op(char* path){
 
 }
 
-// A funÃ§Ã£o "get_tam_registro" utiliza o descritor de arquivo passado e
-// caso o offset passado na funÃ§Ã£o seja negativo, ela retorna o tamanho
-// do registro. Em caso contrÃ¡rio, ela retorna o tamanho do registro especÃ­ficado
-// no byte-offset.
+// o tamanho do registro na posição do cursor.
 short get_tam_registro(FILE* fd, int offset) {
     if (offset >= 0) {
         fseek(fd, offset, SEEK_SET);
@@ -196,8 +172,6 @@ short get_tam_registro(FILE* fd, int offset) {
     return tamanho_registro;
 }
 
-// A funÃ§Ã£o "fpeek" verifica o elemento Ã  frente da posiÃ§Ã£o do cursor movendo
-// ele e, em seguida o retornando para o lugar anterior.
 char fpeek(FILE* fd) {
     char c = fgetc(fd);
     ungetc(c, fd);
@@ -205,7 +179,7 @@ char fpeek(FILE* fd) {
     return c;
 }
 
-// A funÃ§Ã£o "ler_registro" lÃª o registro total eo armazena em uma string usada como buffer.
+// A função "ler registro" lê um registro inteiro do arquivo de dados e o armazena
 int ler_registro(FILE* fd, char* str) {
     checar_cabecalho(fd);
 
@@ -219,8 +193,7 @@ int ler_registro(FILE* fd, char* str) {
     return tamanho_registro;
 }
 
-// A funÃ§Ã£o "ler campos" lÃª um Ãºnico campo de um registro e o armazena em uma string
-// auxiliar passada como parÃ£metro.
+// A função "ler_campo" lê um campo do arquivo de dados e o armazena
 int ler_campo(FILE* fd, char* str) {
     checar_cabecalho(fd);
 
@@ -235,9 +208,8 @@ int ler_campo(FILE* fd, char* str) {
     return i;
 }
 
-// A funÃ§Ã£o "checar_cabeÃ§alho" verifica se o cursor esta na Ã¡rea de 4 bytes do
-// cabeÃ§alho no inÃ­cio do arquivo e, caso esteja, move ela para a posiÃ§Ã£o
-// de leitura do tamanho do registro.
+// A função "checar_cabecalho" checa se o ponteiro do arquivo está no cabeçalho
+// e o corrige se não estiver.
 void checar_cabecalho(FILE* fd) {
     int pos = ftell(fd);
     if (pos < 0) assert(false);
@@ -245,8 +217,7 @@ void checar_cabecalho(FILE* fd) {
         fseek(fd, 4, SEEK_SET);
 }
 
-// A funÃ§Ã£o "busca_id" retorna "verdadeiro" se o identificador passado no
-// arquivo de operaÃ§Ãµes estÃ¡ no arquivo "dados.dat" ou "falso" se nÃ£o estÃ¡.
+// A função "busca_id" busca um registro pelo id e retorna a posição do registro
 int busca_id(FILE* fd, char* id) {
     char buffer[10] = "\0";
     short i = 0;
@@ -268,8 +239,8 @@ int busca_id(FILE* fd, char* id) {
     return -1;
 }
 
-// A funÃ§Ã£o "remove_id" remove um registro
-// lÃ³gicamente e retorna qual id foi removido.
+// A função "remove_id" remove um registro pelo id
+// e retorna a posição do registro
 int remove_id(FILE *fd, char *id) {
     int pos = busca_id(fd, id);
 
@@ -280,7 +251,3 @@ int remove_id(FILE *fd, char *id) {
 
     return pos;
 }
-
-// b 1
-// b 100
-// b 235
