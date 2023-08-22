@@ -20,7 +20,7 @@ LED* LED_criar(int offset, short tam){
 
     ptr->offset = offset;
     ptr->tam_registro = tam;
-    ptr->prox = NULL;
+    ptr->prox = ptr;
 
     return ptr;
 }
@@ -31,18 +31,8 @@ void LED_adicionar(LED *led, LED *novo) {
         assert(false);
     }
 
-    // if (led->tam_registro < novo->tam_registro) {
-    //     LED aux = *led;
-    //     novo->prox = &aux;
-    //     led = novo;
-    //     return;
-
-    //     // novo->prox = led->prox;
-    //     // led->prox = novo;
-    //     // return;
-    // }
-
-    if (led->prox == NULL) {
+    if (novo->tam_registro > led->prox->tam_registro) {
+        novo->prox = led->prox;
         led->prox = novo;
         return;
     }
@@ -51,16 +41,16 @@ void LED_adicionar(LED *led, LED *novo) {
 }
 
 void LED_imprime(LED *led) {
-    if (led == NULL)
-        return;
-
     printf("[offset: %i", led->offset, (int)led->tam_registro);
 
-    if (led->tam_registro <= 0) {
-        printf("] -> ");
-    } else {
+    if (led->tam_registro > 0) {
         printf(", tam: %i] -> ", (int)led->tam_registro);
+    } else {
+        printf("]");
     }
+
+    if (led->offset < 0)
+        return;
 
     LED_imprime(led->prox);
 }
@@ -70,8 +60,6 @@ typedef struct {
     char arg[10];
 } operacao;
 
-// Lê uma operação do arquivo de operações.
-// "b 123" -> {tipo = 'b', arg = "123"}
 operacao ler_op(FILE *fd) {
     operacao op;
 
@@ -85,8 +73,6 @@ operacao ler_op(FILE *fd) {
         op.arg[strlen(op.arg) - 1] = '\0';
     else
         op.arg[strlen(op.arg)] = '\0';
-
-    // printf("%c, %s", op.tipo, op.arg);
 
     return op;
 }
@@ -102,11 +88,12 @@ void checar_cabecalho(FILE *fd);
 char fpeek(FILE *fd);
 
 int busca_id(FILE *fd, char *id);
-int remove_id(FILE  *fd, char  *id, LED  *led);
+int remove_id(FILE *fd, char *id, LED *led);
 
 LED *led_montar(FILE *fd);
 LED *led_ler_registro(FILE *fd, int *prox);
 void led_escrever(FILE *fd, LED *led);
+void led_atualizar_dados(FILE *fd, LED *led);
 
 int main(int argc, char *argv[]) {
     // if (argc == 3 && strcmp(argv[1], "-e") == 0) {
@@ -114,7 +101,6 @@ int main(int argc, char *argv[]) {
         // printf("Modo de execucao de operacoes ativado ... nome do arquivo = %s\n", argv[2]);
         // chamada da funcao que executa o arquivo de operacoes
         // o nome do arquivo de operacoes estara armazenado na variavel argv[2]
-        // executa_operacoes(argv[2])
 
         // executa_op(argv[2]);
         executa_op("ops.txt");
@@ -141,7 +127,6 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-// Executa as operações do arquivo de operações.
 void executa_op(char* path){
     FILE *fd;
     char buffer[150] = "\0";
@@ -189,13 +174,14 @@ void executa_op(char* path){
         }
     }
 
+    led_atualizar_dados(dados, led);
+    led = led->prox;
     LED_imprime(led);
 
     fclose(dados);
     fclose(fd);
 }
 
-// o tamanho do registro na posição do cursor.
 short get_tam_registro(FILE* fd, int offset) {
     if (offset >= 0) {
         fseek(fd, offset, SEEK_SET);
@@ -214,7 +200,6 @@ char fpeek(FILE* fd) {
     return c;
 }
 
-// A função "ler registro" lê um registro inteiro do arquivo de dados e o armazena
 int ler_registro(FILE* fd, char* str) {
     checar_cabecalho(fd);
 
@@ -228,7 +213,6 @@ int ler_registro(FILE* fd, char* str) {
     return tamanho_registro;
 }
 
-// A função "ler_campo" lê um campo do arquivo de dados e o armazena
 int ler_campo(FILE* fd, char* str) {
     checar_cabecalho(fd);
 
@@ -243,8 +227,6 @@ int ler_campo(FILE* fd, char* str) {
     return i;
 }
 
-// A função "checar_cabecalho" checa se o ponteiro do arquivo está no cabeçalho
-// e o corrige se não estiver.
 void checar_cabecalho(FILE* fd) {
     int pos = ftell(fd);
     if (pos < 0) assert(false);
@@ -252,7 +234,6 @@ void checar_cabecalho(FILE* fd) {
         fseek(fd, 4, SEEK_SET);
 }
 
-// A função "busca_id" busca um registro pelo id e retorna a posição do registro
 int busca_id(FILE* fd, char* id) {
     char buffer[10] = "\0";
     short i = 0;
@@ -274,8 +255,6 @@ int busca_id(FILE* fd, char* id) {
     return -1;
 }
 
-// A função "remove_id" remove um registro pelo id
-// e retorna a posição do registro
 int remove_id(FILE *fd, char *id, LED *led) {
     int pos = busca_id(fd, id);
     short tam = get_tam_registro(fd, pos);
@@ -285,8 +264,8 @@ int remove_id(FILE *fd, char *id, LED *led) {
     fseek(fd, pos + 2, SEEK_SET);
     fputc('*', fd);
 
-    fwrite(&led->offset, sizeof(int), 1, fd);
-    LED_adicionar(led, LED_criar(pos, tam));
+    LED *novo = LED_criar(pos, tam);
+    LED_adicionar(led, novo);
 
     return pos;
 }
@@ -326,14 +305,20 @@ LED *led_ler_registro(FILE *fd, int *prox) {
 }
 
 void led_escrever(FILE *fd, LED *led) {
-    int old_offset = ftell(fd);
-    fseek(fd, led->offset < 0 ? 0 : led->offset, SEEK_SET);
-
     if (ftell(fd) >= 4) {
         fwrite(&led->tam_registro, sizeof(short), 1, fd);
         fputc('*', fd);
     }
 
     fwrite(&led->prox->offset, sizeof(int), 1, fd);
-    fseek(fd, old_offset, SEEK_SET);
+}
+
+void led_atualizar_dados(FILE *fd, LED *led) {
+    LED *aux = led;
+
+    do {
+        fseek(fd, aux->offset < 0 ? 0 : aux->offset, SEEK_SET);
+        led_escrever(fd, aux);
+        aux = aux->prox;
+    } while(aux->offset >= 4);
 }
