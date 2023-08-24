@@ -1,6 +1,3 @@
-b 22
-i 147|Resident Evil 2|1998|Survival horror|Capcom|PlayStation|
-r 99
-r 230
-i 181|Pac-Man|1980|Maze|Namco|Arcade|
-i 144|The Sims|2000|Life simulation|Electronic Arts|PC|
+r 5
+r 1
+r 11
