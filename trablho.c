@@ -57,7 +57,7 @@ void LED_imprime(LED *led) {
 
 typedef struct {
     char tipo;
-    char arg[200];
+    char arg[10];
 } operacao;
 
 operacao ler_op(FILE *fd) {
@@ -67,7 +67,7 @@ operacao ler_op(FILE *fd) {
     char c = fgetc(fd);
     if (c != ' ') assert(false);
 
-    fgets(op.arg, 200, fd);
+    fgets(op.arg, 10, fd);
 
     if (op.arg[strlen(op.arg) - 1] == '\n')
         op.arg[strlen(op.arg) - 1] = '\0';
@@ -94,8 +94,6 @@ LED *led_montar(FILE *fd);
 LED *led_ler_registro(FILE *fd, int *prox);
 void led_escrever(FILE *fd, LED *led);
 void led_atualizar_dados(FILE *fd, LED *led);
-int led_verificar(short tam_novo, LED* led);
-
 
 int main(int argc, char *argv[]) {
     // if (argc == 3 && strcmp(argv[1], "-e") == 0) {
@@ -106,8 +104,6 @@ int main(int argc, char *argv[]) {
 
         // executa_op(argv[2]);
         executa_op("ops.txt");
-
-        
 
     // } else if (argc == 2 && strcmp(argv[1], "-p") == 0) {
 
@@ -159,24 +155,7 @@ void executa_op(char* path){
                 }
                 break;
             }
-            case 'i': {
-                // int tam_novo = strlen(op.arg);
-                // int offset = led_verificar(tam_novo, led);
-
-                // if(offset < 0) {
-                //     fseek(fd, 0, SEEK_END);
-                //     fwrite(op.arg, tam_novo, 1, fd);
-                // } else {
-                //     fseek(fd, offset, SEEK_SET);
-
-                //     fwrite(op.arg, tam_novo, 1, fd);
-
-                //     led->tam_registro -= tam_novo;
-                //     led->offset = ftell(fd);
-
-                //     led_atualizar_dados(dados, led);
-                // }
-            }
+            case 'i':
                 break;
             case 'r': {
                 int pos = remove_id(dados, op.arg, led);
@@ -343,16 +322,3 @@ void led_atualizar_dados(FILE *fd, LED *led) {
         aux = aux->prox;
     } while(aux->offset >= 4);
 }
-
-// int led_verificar(short tam_novo, LED* led) {
-//     if (tam_novo <= led->tam_registro) return led->offset;
-
-//     return -1;
-// }
-
-// b 5
-// r 5
-// b 1
-// r 1
-// b 11
-// r 11

@@ -1,1 +1,6 @@
-i 144|The Sims|2000|Life simulation|Eletronic Arts|PC|
+b 5
+r 5
+b 1
+r 1
+b 11
+r 11
