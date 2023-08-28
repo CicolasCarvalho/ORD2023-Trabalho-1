@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <stdbool.h>
 
-#define LIMIAR_DE_INSERCAO 20
+#define LIMIAR_DE_INSERCAO 10
 
 //---------------------------------------------------------------
 
@@ -26,6 +26,7 @@ LED *LED_criar(int offset, short tam){
     return ptr;
 }
 
+// ela adiciona o led na fila em ordem decrescente de tamanho de registro
 void LED_adicionar(LED *led, LED *novo) {
     if (led == NULL) {
         printf("tentou adicionar em fila vazia\n");
@@ -47,13 +48,11 @@ void LED_imprime(LED *led) {
         return;
     }
 
-    if (led->offset == 0) {
+    if (led->offset == 0)
         printf("LED -> ");
-        LED_imprime(led->prox);
-        return;
-    }
-
-    printf("[offset: %i, tam: %i] -> ", led->offset, (int)led->tam_registro);
+    else
+        printf("[offset: %i, tam: %i] -> ", led->offset, (int)led->tam_registro);
+    
     LED_imprime(led->prox);
 }
 
@@ -188,6 +187,10 @@ void executa_op(char *path){
                 strcpy(id, op.arg);
                 strtok(id, "|");
                 printf("Insercao do registro de chave \"%s\" (%lli bytes)\n", id, strlen(op.arg));
+                if (busca_id(dados, id) >= 0) {
+                    printf("Nao foi inserido, pois ja existe um registro com a chave \"%s\"\n\n", id);
+                    break;
+                }
 
                 int pos = insere_reg(dados, op.arg, led);
 
@@ -311,7 +314,7 @@ int busca_id(FILE *fd, char *id) {
 int insere_reg(FILE *fd, char *reg, LED *led) {
     short tam_reg = strlen(reg);
 
-    if (led->prox == NULL || led->prox->tam_registro < (tam_reg + 2)) {
+    if (led->prox == NULL || led->prox->tam_registro < tam_reg) {
         fseek(fd, 0, SEEK_END);
         fwrite(&tam_reg, sizeof(short), 1, fd);
         fputs(reg, fd);
@@ -323,9 +326,9 @@ int insere_reg(FILE *fd, char *reg, LED *led) {
     int tam = removido->tam_registro;
 
     int novo_offset = offset + (2 + tam_reg);
-    int novo_tam = removido->tam_registro - (2 + tam_reg);
+    int novo_tam = tam - (2 + tam_reg);
 
-    printf("Tamanho do espaco reutilizado: %i bytes", removido->tam_registro);
+    printf("Tamanho do espaco reutilizado: %i bytes", tam);
 
     if (novo_tam <= LIMIAR_DE_INSERCAO) tam_reg = tam;
 
@@ -338,7 +341,7 @@ int insere_reg(FILE *fd, char *reg, LED *led) {
 
         LED *novo = LED_criar(novo_offset, novo_tam);
         LED_adicionar(led, novo);
-    } else {
+    } else if(novo_tam >= 1) {
         fputc('*', fd);
     }
 
