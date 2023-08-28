@@ -87,7 +87,7 @@ void LED_free(LED *led) {
 
 typedef struct {
     char tipo;
-    char arg[150];
+    char arg[200];
 } operacao;
 
 operacao ler_op(FILE *fd) {
@@ -96,7 +96,7 @@ operacao ler_op(FILE *fd) {
     op.tipo = fgetc(fd);
     if (fgetc(fd) != ' ') assert(false);
 
-    fgets(op.arg, 150, fd);
+    fgets(op.arg, 200, fd);
 
     if (op.arg[strlen(op.arg) - 1] == '\n')
         op.arg[strlen(op.arg) - 1] = '\0';
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 }
 
 void executa_op(char *path){
-    char buffer[150] = "\0";
+    char buffer[200] = "\0";
 
     FILE *fd = fopen(path, "r");
     assert(fd != NULL);
@@ -183,7 +183,7 @@ void executa_op(char *path){
                 break;
             }
             case 'i': {
-                char id[150];
+                char id[200];
                 strcpy(id, op.arg);
                 strtok(id, "|");
                 printf("Insercao do registro de chave \"%s\" (%lli bytes)\n", id, strlen(op.arg));
@@ -268,7 +268,6 @@ int ler_registro(FILE *fd, char *str) {
 
 int ler_campo(FILE *fd, char *str) {
     checar_cabecalho(fd);
-
     int i = 0;
     char c;
 
@@ -277,10 +276,8 @@ int ler_campo(FILE *fd, char *str) {
     }
 
     if (c == '*') str[0] = '\0';
-
-    str[++i] = '\0';
-
-    return i;
+    str[i] = '\0';
+    return i + 1;
 }
 
 void checar_cabecalho(FILE *fd) {
@@ -292,8 +289,8 @@ void checar_cabecalho(FILE *fd) {
 
 int busca_id(FILE *fd, char *id) {
     char buffer[10] = "\0";
-    short i = 0;
-    int tam = 0;
+    int i = 0;
+    short tam = 0;
 
     fseek(fd, 4, SEEK_SET);
 
@@ -305,7 +302,7 @@ int busca_id(FILE *fd, char *id) {
             return ftell(fd) - i - 2;
         }
 
-        fseek(fd, tam-i, SEEK_CUR);
+        fseek(fd, (int)tam - i, SEEK_CUR);
     }
 
     return -1;
@@ -323,10 +320,10 @@ int insere_reg(FILE *fd, char *reg, LED *led) {
 
     LED *removido = LED_remove(led);
     int offset = removido->offset;
-    int tam = removido->tam_registro;
+    short tam = removido->tam_registro;
 
     int novo_offset = offset + (2 + tam_reg);
-    int novo_tam = tam - (2 + tam_reg);
+    short novo_tam = tam - (2 + tam_reg);
 
     printf("Tamanho do espaco reutilizado: %i bytes", tam);
 
@@ -341,9 +338,11 @@ int insere_reg(FILE *fd, char *reg, LED *led) {
 
         LED *novo = LED_criar(novo_offset, novo_tam);
         LED_adicionar(led, novo);
-    } else if(novo_tam >= 1) {
-        fputc('*', fd);
+
+        fwrite(&novo_tam, sizeof(short), 1, fd);
     }
+    
+    if(novo_tam >= 1) fputc('*', fd);
 
     free(removido);
     return offset;
