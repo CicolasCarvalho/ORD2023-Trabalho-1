@@ -13,11 +13,11 @@ typedef struct LED LED;
 struct LED {
     int offset;
     short tam_registro;
-    LED* prox;
+    LED *prox;
 };
 
-LED* LED_criar(int offset, short tam){
-    LED* ptr = malloc(sizeof(LED));
+LED *LED_criar(int offset, short tam){
+    LED *ptr = malloc(sizeof(LED));
 
     ptr->offset = offset;
     ptr->tam_registro = tam;
@@ -28,11 +28,11 @@ LED* LED_criar(int offset, short tam){
 
 void LED_adicionar(LED *led, LED *novo) {
     if (led == NULL) {
-        printf("tentou inserir em fila vazia\n");
+        printf("tentou adicionar em fila vazia\n");
         assert(false);
     }
 
-    if (novo->tam_registro > led->prox->tam_registro) {
+    if (led->prox == NULL || novo->tam_registro > led->prox->tam_registro) {
         novo->prox = led->prox;
         led->prox = novo;
         return;
@@ -42,27 +42,41 @@ void LED_adicionar(LED *led, LED *novo) {
 }
 
 void LED_imprime(LED *led) {
+    if (led == NULL) {
+        printf("[offset: -1]");
+        return;
+    }
+
     if (led->offset == 0) {
         printf("LED -> ");
         LED_imprime(led->prox);
         return;
     }
 
-    if (led->offset == -1) {
-        printf("[offset: -1]");
-        return;
-    }
-
     printf("[offset: %i, tam: %i] -> ", led->offset, (int)led->tam_registro);
-
     LED_imprime(led->prox);
 }
 
 int LED_tam(LED *led) {
-    if (led->prox->offset <= -1)
+    if (led->prox == NULL)
         return 0;
 
     return LED_tam(led->prox) + 1;
+}
+
+LED *LED_remove(LED *led) {
+    if (led == NULL) {
+        printf("tentou remover em fila vazia\n");
+        assert(false);
+    }
+
+    if (led->prox == NULL) return NULL;
+
+    LED *removido = led->prox;
+    led->prox = led->prox->prox;
+    removido->prox = NULL;
+
+    return removido;
 }
 
 void LED_free(LED *led) {
@@ -117,7 +131,7 @@ int main(int argc, char *argv[]) {
         printf("Modo de execucao de operacoes ativado ... nome do arquivo = %s\n", argv[2]);
         executa_op(argv[2]);
     } else if (argc == 2 && strcmp(argv[1], "-p") == 0) {
-        FILE* dados = fopen("dados.dat", "rb+");
+        FILE *dados = fopen("dados.dat", "rb+");
         assert(dados != NULL);
 
         printf("Modo de impressao da LED ativado ...\n");
@@ -140,13 +154,13 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void executa_op(char* path){
+void executa_op(char *path){
     char buffer[150] = "\0";
 
     FILE *fd = fopen(path, "r");
     assert(fd != NULL);
 
-    FILE* dados = fopen("dados.dat", "rb+");
+    FILE *dados = fopen("dados.dat", "rb+");
     assert(dados != NULL);
 
     LED *led = led_montar(dados);
@@ -213,7 +227,7 @@ void executa_op(char* path){
     fclose(fd);
 }
 
-short get_tam_registro(FILE* fd, int offset) {
+short get_tam_registro(FILE *fd, int offset) {
     if (offset >= 0) {
         fseek(fd, offset, SEEK_SET);
     }
@@ -224,14 +238,14 @@ short get_tam_registro(FILE* fd, int offset) {
     return tamanho_registro;
 }
 
-char fpeek(FILE* fd) {
+char fpeek(FILE *fd) {
     char c = fgetc(fd);
     ungetc(c, fd);
 
     return c;
 }
 
-int ler_registro(FILE* fd, char* str) {
+int ler_registro(FILE *fd, char *str) {
     checar_cabecalho(fd);
 
     short tamanho_registro = get_tam_registro(fd, -1);
@@ -249,7 +263,7 @@ int ler_registro(FILE* fd, char* str) {
     return i;
 }
 
-int ler_campo(FILE* fd, char* str) {
+int ler_campo(FILE *fd, char *str) {
     checar_cabecalho(fd);
 
     int i = 0;
@@ -266,14 +280,14 @@ int ler_campo(FILE* fd, char* str) {
     return i;
 }
 
-void checar_cabecalho(FILE* fd) {
+void checar_cabecalho(FILE *fd) {
     int pos = ftell(fd);
     if (pos < 0) assert(false);
     if (pos < 4)
         fseek(fd, 4, SEEK_SET);
 }
 
-int busca_id(FILE* fd, char* id) {
+int busca_id(FILE *fd, char *id) {
     char buffer[10] = "\0";
     short i = 0;
     int tam = 0;
@@ -297,27 +311,23 @@ int busca_id(FILE* fd, char* id) {
 int insere_reg(FILE *fd, char *reg, LED *led) {
     short tam_reg = strlen(reg);
 
-    if (LED_tam(led) <= 0 || led->prox->tam_registro < (tam_reg + 2)) {
+    if (led->prox == NULL || led->prox->tam_registro < (tam_reg + 2)) {
         fseek(fd, 0, SEEK_END);
         fwrite(&tam_reg, sizeof(short), 1, fd);
         fputs(reg, fd);
         return -1;
     }
 
-    LED *removido = led->prox;
-    led->prox = led->prox->prox;
-    removido->prox = NULL;
-
+    LED *removido = LED_remove(led);
     int offset = removido->offset;
+    int tam = removido->tam_registro;
 
     int novo_offset = offset + (2 + tam_reg);
     int novo_tam = removido->tam_registro - (2 + tam_reg);
 
     printf("Tamanho do espaco reutilizado: %i bytes", removido->tam_registro);
 
-    if (novo_tam <= LIMIAR_DE_INSERCAO) {
-        tam_reg += (novo_tam + 2);
-    }
+    if (novo_tam <= LIMIAR_DE_INSERCAO) tam_reg = tam;
 
     fseek(fd, offset, SEEK_SET);
     fwrite(&tam_reg, sizeof(short), 1, fd);
@@ -356,13 +366,11 @@ LED *led_montar(FILE *fd) {
 
     int prox = 0;
     LED *led = led_ler_registro(fd, &prox);
-    led->prox = LED_criar(-1, 0);
 
     while (prox > 0) {
         fseek(fd, prox, SEEK_SET);
 
         LED *aux = led_ler_registro(fd, &prox);
-
         LED_adicionar(led, aux);
     }
 
@@ -390,7 +398,8 @@ void led_escrever(FILE *fd, LED *led) {
         fputc('*', fd);
     }
 
-    fwrite(&led->prox->offset, sizeof(int), 1, fd);
+    int prox = led->prox == NULL ? -1: led->prox->offset;
+    fwrite(&prox, sizeof(int), 1, fd);
 }
 
 void led_atualizar_dados(FILE *fd, LED *led) {
@@ -400,5 +409,5 @@ void led_atualizar_dados(FILE *fd, LED *led) {
         fseek(fd, aux->offset, SEEK_SET);
         led_escrever(fd, aux);
         aux = aux->prox;
-    } while(aux->offset >= 0);
+    } while(aux != NULL);
 }
